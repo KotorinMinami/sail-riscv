@@ -52,7 +52,7 @@ pmp {
 }
 
 sys {
-  requires core, exceptions, pmp, V_core, Smcntrpmf, Zicfilp_regs, A_types
+  requires core, exceptions, pmp, V_core, Smcntrpmf, Zicfilp_regs, A_types, H_core
 
   files
     sys/sys_reservation.sail,
@@ -155,8 +155,13 @@ extensions {
 
   // Hypervisor
   H {
-    files
-      extensions/H/hext_insts.sail
+    H_core {
+      requires exceptions, core
+      before sys
+      files
+        extensions/H/hext_regs.sail,
+        extensions/H/hext_control.sail,
+    }
   }
 
   // Floating point (F and D extensions)
