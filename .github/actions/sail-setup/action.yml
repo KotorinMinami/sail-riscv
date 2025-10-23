@@ -81,10 +81,11 @@ runs:
       if: inputs.sail-version == 'latest'
       shell: bash
       run: |
-        git clone https://github.com/rems-project/sail.git
+        git clone -b map_vec_subrange --single-branch https://github.com/KotorinMinami/sail.git
         eval $(opam env)
         (cd sail; opam install sail --deps-only --yes)
         (cd sail; make install)
+        sudo ln -s $PWD/sail/sail /usr/bin/sail
 
     - name: Save cached opam (macOS or latest Sail)
       # Update cache only on the master branch
