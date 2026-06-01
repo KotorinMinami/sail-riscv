@@ -13,6 +13,7 @@ core {
     core/xlen.sail,
     core/flen.sail,
     core/vlen.sail,
+    core/mlen.sail,
     core/mem_addrtype.sail,
     core/mem_metadata.sail,
     core/phys_mem_interface.sail,
@@ -60,7 +61,7 @@ pmp {
 }
 
 sys {
-  requires prelude, core, exceptions, pmp, V_core, Smcntrpmf, Zicfilp_regs, A_types, Stateen, Zicbop_types, PM_utils
+  requires prelude, core, exceptions, pmp, V_core, Smcntrpmf, Zicfilp_regs, A_types, Stateen, Zicbop_types, PM_utils, Zvame_regs
 
   files
     sys/sys_reservation.sail,
@@ -317,6 +318,19 @@ extensions {
     Zvabd_insts {
       requires sys, V, Zvabd_types
       files extensions/Zvabd/zvabd_insts.sail
+    }
+  }
+
+  Zvame {
+    requires core
+    Zvame_types {
+      before sys
+      files extensions/Zvame/zvame_types.sail
+    }
+    Zvame_regs {
+      requires Zvame_types
+      before sys
+      files extensions/Zvame/zvame_regs.sail
     }
   }
 

@@ -402,6 +402,9 @@ function reset_sys() -> unit = {
   vtype[vta]       = 0b0;
   vtype[vsew]      = 0b000;
   vtype[vlmul]     = 0b000;
+
+  amenxlen = to_bits(ame_nlen);
+  ameudsz  = to_bits(ame_unit_dtype_size)
 }
 
 // memory access exceptions, defined here for use by the platform model.
