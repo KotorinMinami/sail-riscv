@@ -2223,7 +2223,7 @@ function clause execute AME_MGETTYP(xd, ms1) = {
   // }
   //
   // X[xd] = Md[ms1];
-  X(encdec_reg(xd)) = zero_extend(MD(Mdregidx(ms1)));
+  X(Regidx(xd)) = zero_extend(MD(Mdregidx(ms1)));
   RETIRE_SUCCESS
 }
 
@@ -8426,7 +8426,7 @@ function clause execute AME_MSETTYP(md, xs1) = {
   //   Md[md] = X[xs1];
   //   M[md] = 0;
   // }
-  let dtype : bits(32) = X(encdec_reg(xs1))[31..0];
+  let dtype : bits(32) = X(Regidx(xs1))[31..0];
   MD(Mdregidx(md)) = dtype;
   M(Ameregidx(md)) = zeros();
   RETIRE_SUCCESS

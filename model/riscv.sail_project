@@ -332,6 +332,10 @@ extensions {
       before sys
       files extensions/Zvame/zvame_regs.sail
     }
+    Zvame_insts {
+      requires sys, Zvame_types, Zvame_regs
+      files extensions/Zvame/zvame_insts.sail
+    }
   }
 
   // Control and Status Register (CSR) Instructions

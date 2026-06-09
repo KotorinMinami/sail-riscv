@@ -200,4 +200,9 @@ if (FIRST_PARTY_TESTS)
     add_subdirectory("first_party")
 endif()
 
+option(ENABLE_RISCV_AME_TESTS "Compile and register AME smoke tests." ON)
+if (ENABLE_RISCV_AME_TESTS)
+    add_subdirectory("ame")
+endif()
+
 add_subdirectory("unit_tests")
