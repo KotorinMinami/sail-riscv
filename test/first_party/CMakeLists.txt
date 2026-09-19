@@ -151,8 +151,8 @@ add_first_party_override_test("test_satp_asidlen_partial.S" "satp_asidlen_partia
 add_first_party_override_test("test_hgatp_vmidlen.S" "hgatp_vmidlen.json")
 add_first_party_override_test("test_hgatp_vmidlen_partial.S" "hgatp_vmidlen_partial.json")
 
-# RVVI-TEXT tests. Built like other first_party tests; CTest diffs the
-# simulator output against src/golden/ (see src/regenerate_golden.sh).
+# RVVI-TEXT tests. Built like other first_party tests; CTest matches the
+# main-window TRACE fields against src/*.expect.json.
 set(rvvi_tests)
 macro(add_first_party_rvvi_test name)
     set(isa_extension gcv_zfbfmin)
@@ -251,7 +251,7 @@ foreach(idx RANGE 0 ${test_last} 4)
     )
 endforeach()
 
-# RVVI-TEXT tests: compile each ELF, then golden-diff the --trace-rvvi-text output.
+# RVVI-TEXT tests: compile each ELF, then match --trace-rvvi-text against expect.json.
 list(LENGTH rvvi_tests rvvi_tests_len)
 math(EXPR rvvi_test_last "${rvvi_tests_len} - 1")
 set(rvvi_checker "${CMAKE_CURRENT_SOURCE_DIR}/src/common/rvviTextChecker.py")
@@ -300,7 +300,8 @@ foreach(idx RANGE 0 ${rvvi_test_last} 3)
 
     add_custom_target(build_rvvi_${arch}_${test_source} ALL DEPENDS ${elf} ${config} ${override_config})
 
-    set(golden "${CMAKE_CURRENT_SOURCE_DIR}/src/golden/${arch}_${test_source}.rvvi")
+    string(REPLACE ".S" ".expect.json" expect_file "${test_source}")
+    set(expect "${CMAKE_CURRENT_SOURCE_DIR}/src/${expect_file}")
     add_test(
         NAME "first_party_${arch}_${test_source}_rvvi_golden"
         COMMAND ${Python3_EXECUTABLE}
@@ -309,12 +310,18 @@ foreach(idx RANGE 0 ${rvvi_test_last} 3)
             --elf ${elf}
             --config ${config}
             --config-override ${override_config}
-            --golden ${golden}
+            --expect ${expect}
             --checker ${rvvi_checker}
             --lint ${rvvi_lint}
             --inst-limit 10000
     )
 endforeach()
+
+add_test(
+    NAME first_party_rvvi_text_match_unit
+    COMMAND ${Python3_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/common/test_match_rvvi_trace.py"
+)
 
 add_test(
     NAME first_party_rvvi_text_negative

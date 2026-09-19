@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-# Compare --trace-rvvi-text output against a golden file.
-# Runs the simulator twice (determinism), then the syntax checker and linter.
+# Run --trace-rvvi-text twice, check grammar/lint, then match the main window
+# against a TRACE-field expect file (not a full-file golden dump).
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+from match_rvvi_trace import match_text
 
 
 def run_sim(args, trace_path: str) -> subprocess.CompletedProcess:
@@ -40,14 +46,14 @@ def run_validator(tool: str, trace_path: str) -> subprocess.CompletedProcess:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Diff RVVI-TEXT output against a golden trace"
+        description="Validate RVVI-TEXT and match TRACE fields in main"
     )
     parser.add_argument("--sim", required=True)
     parser.add_argument("--elf", required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--config-override", required=True)
     parser.add_argument("--inst-limit", type=int, default=10000)
-    parser.add_argument("--golden", required=True)
+    parser.add_argument("--expect", required=True)
     parser.add_argument("--checker", required=True)
     parser.add_argument("--lint", required=True)
     args = parser.parse_args()
@@ -88,28 +94,13 @@ def main() -> int:
                 print(lint.stderr, file=sys.stderr)
             return 1
 
-        with open(args.golden, encoding="utf-8") as f:
-            golden = f.read()
-        if a != golden:
-            print("FAIL: RVVI-TEXT does not match golden", file=sys.stderr)
-            a_lines = a.splitlines()
-            g_lines = golden.splitlines()
-            print(
-                f"  generated {len(a_lines)} lines, golden {len(g_lines)} lines",
-                file=sys.stderr,
-            )
-            for i, (x, y) in enumerate(zip(a_lines, g_lines), 1):
-                if x != y:
-                    print(f"  first diff at line {i}:", file=sys.stderr)
-                    print(f"    golden: {y}", file=sys.stderr)
-                    print(f"    got:    {x}", file=sys.stderr)
-                    break
-            else:
-                if len(a_lines) != len(g_lines):
-                    print(
-                        "  traces share a common prefix but differ in length",
-                        file=sys.stderr,
-                    )
+        with open(args.expect, encoding="utf-8") as f:
+            expect = json.load(f)
+        errors = match_text(a, expect, args.elf)
+        if errors:
+            print("FAIL: TRACE field mismatch in main window", file=sys.stderr)
+            for err in errors:
+                print(" ", err, file=sys.stderr)
             return 1
 
     print("PASS")
