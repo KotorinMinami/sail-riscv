@@ -59,6 +59,7 @@ function clause execute ZICBOZ(rs1) = {
               memory_exception(e, bits_of(vaddr - negative_offset), access_info)
             },
             Ok(_)  => {
+              vmem_access_callback(zero_extend(bits_of(vaddr)), bits_of(paddr), access, cache_block_size);
               match mem_write_value(paddr, cache_block_size, zeros(), eff_priv, access, pbmt, false, false, false) {
                 Ok(true)  => RETIRE_SUCCESS,
                 Ok(false) => internal_error(__FILE__, __LINE__, "store got false from mem_write_value"),

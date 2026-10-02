@@ -113,16 +113,16 @@ private function translate_and_read_value forall 'width, 0 < 'width <= max_mem_a
   match translateAddr(vaddr, access, eff_priv) {
     Err(e, _) => Err(trap(e)),
 
-    Ok(paddr, pbmt, _) => {
-      vmem_access_callback(zero_extend(bits_of(vaddr)), bits_of(paddr), access, width);
-      match mem_read(access, pbmt, eff_priv, paddr, width, aq, rl, res) {
-        Err(exc_paddr, e) => {
-          let exc_vaddr = offset_virtaddr_by(vaddr, paddr, exc_paddr);
-          Err(memory_exception(e, bits_of(exc_vaddr), access_info))
-        },
+    Ok(paddr, pbmt, _) => match mem_read(access, pbmt, eff_priv, paddr, width, aq, rl, res) {
+      Err(exc_paddr, e) => {
+        let exc_vaddr = offset_virtaddr_by(vaddr, paddr, exc_paddr);
+        Err(memory_exception(e, bits_of(exc_vaddr), access_info))
+      },
 
-        Ok(v) => Ok(paddr, v),
-      }
+      Ok(v) => {
+        vmem_access_callback(zero_extend(bits_of(vaddr)), bits_of(paddr), access, width);
+        Ok(paddr, v)
+      },
     }
   }
 }
