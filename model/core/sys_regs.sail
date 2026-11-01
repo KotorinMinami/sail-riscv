@@ -146,7 +146,7 @@ private function legalize_misa(m : Misa, v : xlenbits) -> Misa = {
   let S = if hartSupports(Ext_S) & U == 0b1 then { if config extensions.S.mutable_misa then v[S] else m[S] } else 0b0;
   let H = if hartSupports(Ext_H) & S == 0b1 & U == 0b1 then { if config extensions.H.mutable_misa then v[H] else m[H] } else 0b0;
   // Suppress updates to MISA if by disabling C next PC would become misaligned or an extension vetoes
-  if   (C == 0b0 & m[C] == 0b1 & (nextPC[1] == 0b1 | ext_veto_disable_C()))
+  if   (C == 0b0 & m[C] == 0b1 & ((nextPC[1] == 0b1 & not(currentlyEnabled(Ext_Xlong48))) | ext_veto_disable_C()))
   then m
   else [m with
     A, B, C, D, F, H, M, S, U, V,
@@ -753,11 +753,11 @@ function tvec_addr(m : Mtvec, c : Mcause) -> option(xlenbits) = {
 
 register mepc : xlenbits
 
-// The xepc legalization zeroes xepc[1:0] when Zca is not supported.
-// When Zca is supported (whether it is enabled or not), it zeroes only xepc[0].
+// Preserve xepc[1] whenever the implementation supports IALIGN=16,
+// independently of the currently enabled instruction sets.
 // PUBLIC: invoked from set_xepc() [exceptions/sys_exceptions.sail]
 function legalize_xepc(v : xlenbits) -> xlenbits = {
-  if   hartSupports(Ext_Zca)
+  if   supports_ialign16()
   then [v with 0 = 0b0]
   else [v with 1..0 = zeros()]
 }
@@ -765,7 +765,7 @@ function legalize_xepc(v : xlenbits) -> xlenbits = {
 // Align value to min supported PC alignment. This is used to
 // legalize xepc reads.
 function align_pc(addr : xlenbits) -> xlenbits = {
-  if currentlyEnabled(Ext_Zca)
+  if enabled_ialign16()
   then [addr with 0 = 0b0]
   else [addr with 1..0 = zeros()]
 }

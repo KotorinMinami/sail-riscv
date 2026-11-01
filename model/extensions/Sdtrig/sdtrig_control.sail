@@ -246,7 +246,11 @@ private function compare_address forall 'width, 0 < 'width <= max_mem_access. (
   None();
 }
 
-private function compare_value forall 'width, is_mem_width_wide('width) . (
+// Trigger value comparisons accept data widths and 6-byte instructions.
+// Do not widen is_mem_width_wide: data accesses still exclude 6 bytes.
+private type is_trigger_value_width('w) = is_mem_width_wide('w) | 'w == 6
+
+private function compare_value forall 'width, is_trigger_value_width('width) . (
   t_match : Trig_Match,
   t_size  : Trig_Match_Size,
   value   : bits(8 * 'width),

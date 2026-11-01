@@ -19,7 +19,7 @@ private function rvfi_fetch() -> FetchResult = {
   };
 
   // Then check PC alignment
-  if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(currentlyEnabled(Ext_Zca))))
+  if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(enabled_ialign16())))
   then return F_Error(exception_context(E_Fetch_Addr_Align(), PC));
 
   let access : MemoryAccessType(mem_payload) = InstructionFetch();

@@ -11,8 +11,12 @@
 type half = bits(16)
 type word = bits(32)
 
-// Bit-vector of an uncompressed instruction.
-type instbits = bits(32)
+// Zero-padded raw encoding saved in instr_info, including across deferred waits.
+// This is storage capacity, not architectural ILEN: decode, fetch callbacks and
+// instruction triggers keep their exact 16/32/48-bit widths. Exception reporting
+// selects the low XLEN bits; instruction_length_bytes records the fetched size.
+type instbits = bits(64)
+type instruction_length_bytes = {2, 4, 6}
 
 type pagesize_bits : Int = 12
 let  pagesize_bits = sizeof(pagesize_bits)

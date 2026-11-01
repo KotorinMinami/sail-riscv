@@ -14,7 +14,7 @@ struct instr_info = {
   fetched_instruction       : instruction,
   executed_instruction      : option(instruction),
   instbits                  : instbits,
-  compressed                : bool,
+  length_bytes              : instruction_length_bytes,
 }
 
 // The state of the emulator.
@@ -57,8 +57,10 @@ function hart_is_waiting(s : HartState) -> bool =
 // from an extension that interposes on the fetch operation.
 
 union FetchResult = {
-  F_Ext_Error : ext_fetch_addr_error,      // For extensions
-  F_Base      : word,                      // Base ISA
-  F_RVC       : half,                      // Compressed ISA
-  F_Error     : ExceptionContext           // Exception Context
+  F_Ext_Error  : ext_fetch_addr_error,     // For extensions
+  F_Base       : word,                     // Base ISA
+  F_RVC        : half,                     // Compressed ISA
+  F_Long48     : bits(48),                 // Complete instruction (possibly illegal)
+  F_LongPrefix : bits(48),                 // Unsupported length; only 6 bytes fetched
+  F_Error      : ExceptionContext          // Exception Context
 }

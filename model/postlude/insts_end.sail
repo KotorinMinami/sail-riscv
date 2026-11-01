@@ -26,6 +26,10 @@ mapping clause assembly = C_ILLEGAL(s) <-> "c.illegal" ^ spc() ^ hex_bits_16(s)
 
 // *****************************************************************
 
+mapping clause encdec_long48 = L_ILLEGAL(s) <-> s
+function clause execute L_ILLEGAL(_) = Illegal_Instruction()
+mapping clause assembly = L_ILLEGAL(s) <-> "l.illegal" ^ spc() ^ hex_bits_48(s)
+
 // End definitions
 end extension
 end extensionName
@@ -36,9 +40,12 @@ end execute
 end assembly
 end encdec
 end encdec_compressed
+end encdec_long48
 
 // Some legal instructions do not have any corresponding assembly, e.g. reserved fences.
 function instruction_to_str(insn : instruction) -> string =
-  if assembly_forwards_matches(insn) then assembly(insn) else (".insn " ^ bits_str(encdec(insn)))
+  if assembly_forwards_matches(insn) then assembly(insn)
+  else if encdec_long48_forwards_matches(insn) then ".insn " ^ bits_str(encdec_long48(insn))
+  else (".insn " ^ bits_str(encdec(insn)))
 
 overload to_str = {instruction_to_str}

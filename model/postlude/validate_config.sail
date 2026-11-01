@@ -1137,9 +1137,9 @@ private function check_extension_param_constraints() -> bool = {
       print_endline("`base.writable_fiom` is false but Sv32 is supported: FIOM may only be read-only zero when satp.MODE is always Bare.");
     }
   };
-  if not(config extensions.H.hedeleg_zero_writable : bool) & (config extensions.H.supported : bool) & not(config extensions.Zca.supported : bool) then {
+  if not(config extensions.H.hedeleg_zero_writable : bool) & (config extensions.H.supported : bool) & not(supports_ialign16()) then {
     valid = false;
-    print_endline("extensions.H.hedeleg_zero_writable is false but IALIGN=32 (Zca is disabled): hedeleg[0] must be writable when IALIGN=32.")
+    print_endline("extensions.H.hedeleg_zero_writable is false but IALIGN=32 (neither Zca nor Xlong48 is supported): hedeleg[0] must be writable when IALIGN=32.")
   };
 
   valid
@@ -1298,6 +1298,28 @@ function validate_event_selectors() = true
 private function check_platform_constraints() -> bool =
   validate_event_selectors()
 
+private function check_long48() -> bool = {
+  if not(config extensions.Xlong48.supported : bool) then return true;
+  var valid : bool = true;
+  if not(backend_supports_xlong48()) then {
+    print_endline("Xlong48 is not supported by this backend.");
+    valid = false;
+  };
+  if not(sys_enable_experimental_extensions()) then {
+    print_endline("Xlong48 requires --enable-experimental-extensions.");
+    valid = false;
+  };
+  if hartSupports(Ext_Ziccif) then {
+    print_endline("Xlong48 with Ziccif is not implemented.");
+    valid = false;
+  };
+  if get_config_rvfi() then {
+    print_endline("Xlong48 is not supported by the 32-bit RVFI-DII interface.");
+    valid = false;
+  };
+  valid
+}
+
 function config_is_valid() -> bool = {
     check_privs()
   & check_tvecs()
@@ -1315,4 +1337,5 @@ function config_is_valid() -> bool = {
   & check_version_constraints()
   & check_platform_constraints()
   & check_stateen_config()
+  & check_long48()
 }

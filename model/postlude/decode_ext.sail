@@ -13,3 +13,5 @@
 function ext_decode_compressed(bv : bits(16)) -> instruction = encdec_compressed(bv)
 
 function ext_decode(bv : bits(32)) -> instruction = encdec(bv)
+
+function ext_decode_long48(bv : bits(48)) -> instruction = encdec_long48(bv)

@@ -57,9 +57,8 @@ function jump_to(target : xlenbits) -> ExecutionResult = {
   // Check target is at least 2-byte aligned (callers must ensure
   // this so it can be an assertion).
   assert(target[0] == 0b0);
-  // If it is not 4-byte aligned and compressed instructions are
-  // not enabled then raise an alignment exception.
-  if bit_to_bool(target[1]) & not(currentlyEnabled(Ext_Zca))
+  // If it is not 4-byte aligned and IALIGN=32, raise an alignment exception.
+  if bit_to_bool(target[1]) & not(enabled_ialign16())
   then return trap(exception_context(E_Fetch_Addr_Align(), target));
 
   set_next_pc(target);

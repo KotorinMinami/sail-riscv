@@ -112,6 +112,46 @@ private function run_hart_waiting(_step_no : nat, wr: WaitReason, instr_info : i
   }
 }
 
+// Only complete instructions reach observers. Instruction widths are independent
+// of the raw storage capacity and the widths allowed for data memory.
+private function execute_fetched forall 'n, 'n in {16, 32, 48} . (
+  step_no : nat, raw : bits('n), fetch_privilege : Privilege,
+  fetch_trigger_reentrance : bool
+) -> Step = {
+  sail_instr_announce(raw);
+  fetch_callback(raw);
+  let length_bytes : int(div('n, 8)) = sizeof('n) / 8;
+  match match_memory_trigger_before(cur_privilege, TriggerFetchInstr(PC, raw, length_bytes)) {
+    Some(pti) => return Step_Fetch_Trigger(pti),
+    None() => (),
+  };
+  let fetched_instruction = if sizeof('n) == 16 then ext_decode_compressed(raw)
+                            else if sizeof('n) == 32 then ext_decode(raw)
+                            else ext_decode_long48(raw);
+  let instbits : instbits = zero_extend(raw);
+  if get_config_print_instr() then
+    print_log_instr("[" ^ dec_str(step_no) ^ "] [" ^ to_str(cur_privilege) ^ "]: " ^ bits_str(PC) ^ " (" ^ bits_str(raw) ^ ") " ^ to_str(fetched_instruction), zero_extend(PC));
+  let base_info : instr_info = struct instr_info {
+    fetch_privilege,
+    fetch_trigger_reentrance,
+    fetched_instruction,
+    executed_instruction = None(),
+    instbits,
+    length_bytes,
+  };
+  // Only an actual 32-bit LPAD can satisfy the landing-pad expectation.
+  if is_landing_pad_expected() & (sizeof('n) != 32 | not(is_lpad_instruction(fetched_instruction)))
+  then return Step_Execute(trap(make_landing_pad_exception()), base_info);
+  if sizeof('n) == 16 & not(currentlyEnabled(Ext_Zca))
+  then return Step_Execute(Illegal_Instruction(), base_info);
+  nextPC = PC + length_bytes;
+  let (executed_instruction, result) : (option(instruction), ExecutionResult) = match execute(fetched_instruction) {
+    ExecuteAs(other_inst) => (Some(other_inst), execute(other_inst)),
+    result => (Some(fetched_instruction), result),
+  };
+  Step_Execute(result, {base_info with executed_instruction})
+}
+
 private function run_hart_active(step_no: nat) -> Step = {
   // The Sdtrig extension does not define the priority of triggers
   // with respect to pending interrupts. See however:
@@ -146,82 +186,23 @@ private function run_hart_active(step_no: nat) -> Step = {
   let fetch_trigger_reentrance = prevent_reentrance(TA_Breakpoint, fetch_privilege);
 
   match ext_fetch_hook(fetch()) {
-    // extension error
-    F_Ext_Error(e)   => Step_Ext_Fetch_Failure(e),
-    // standard error
+    F_Ext_Error(e) => Step_Ext_Fetch_Failure(e),
     F_Error(e) => Step_Fetch_Failure(e),
-    // non-error cases:
-    F_RVC(h) => {
-      sail_instr_announce(h);
-      fetch_callback(h);
-
-      match match_memory_trigger_before(cur_privilege, TriggerFetchInstr(PC, h, 2)) {
-        Some(pti) => return Step_Fetch_Trigger(pti),
-        None()    => (),
+    F_RVC(h) => execute_fetched(step_no, h, fetch_privilege, fetch_trigger_reentrance),
+    F_Base(w) => execute_fetched(step_no, w, fetch_privilege, fetch_trigger_reentrance),
+    F_Long48(w) => execute_fetched(step_no, w, fetch_privilege, fetch_trigger_reentrance),
+    F_LongPrefix(w) => {
+      // An incomplete unsupported encoding is not a successful fetch event.
+      let info : instr_info = struct instr_info {
+        fetch_privilege,
+        fetch_trigger_reentrance,
+        fetched_instruction = L_ILLEGAL(w),
+        executed_instruction = None(),
+        instbits = zero_extend(w),
+        length_bytes = 6,
       };
-
-      let instbits : instbits = zero_extend(h);
-      let fetched_instruction = ext_decode_compressed(h);
-      if   get_config_print_instr()
-      then {
-        print_log_instr("[" ^ dec_str(step_no) ^ "] [" ^ to_str(cur_privilege) ^ "]: " ^ bits_str(PC) ^ " (" ^ bits_str(h) ^ ") " ^ to_str(fetched_instruction), zero_extend(PC));
-      };
-      // When ELP is set to LP_EXPECTED, the next instruction needs to be
-      // the non-RVC `LPAD` instruction.
-      if is_landing_pad_expected() then {
-        let r = trap(make_landing_pad_exception());
-        let executed_instruction : option(instruction) = None();
-        let instr_info = struct instr_info { fetch_privilege, fetch_trigger_reentrance, instbits, fetched_instruction, executed_instruction, compressed = true };
-        Step_Execute(r, instr_info)
-      }
-      // check for RVC once here instead of every RVC execute clause.
-      else if currentlyEnabled(Ext_Zca) then {
-        nextPC = PC + 2;
-        let (executed_instruction, result) : (option(instruction), ExecutionResult) = match execute(fetched_instruction) {
-          ExecuteAs(other_inst) => (Some(other_inst), execute(other_inst)),
-          result => (Some(fetched_instruction), result),
-        };
-        let instr_info = struct instr_info { fetch_privilege, fetch_trigger_reentrance, fetched_instruction, executed_instruction, instbits, compressed = true };
-        Step_Execute(result, instr_info)
-      } else {
-        let executed_instruction : option(instruction) = None();
-        let instr_info = struct instr_info { fetch_privilege, fetch_trigger_reentrance, fetched_instruction, executed_instruction, instbits, compressed = true };
-        Step_Execute(Illegal_Instruction(), instr_info)
-      }
+      Step_Execute(Illegal_Instruction(), info)
     },
-    F_Base(w) => {
-      sail_instr_announce(w);
-      fetch_callback(w);
-
-      match match_memory_trigger_before(cur_privilege, TriggerFetchInstr(PC, w, 4)) {
-        Some(pti) => return Step_Fetch_Trigger(pti),
-        None()    => (),
-      };
-
-      let instbits : instbits = zero_extend(w);
-      let fetched_instruction = ext_decode(w);
-      if   get_config_print_instr()
-      then {
-        print_log_instr("[" ^ dec_str(step_no) ^ "] [" ^ to_str(cur_privilege) ^ "]: " ^ bits_str(PC) ^ " (" ^ bits_str(w) ^ ") " ^ to_str(fetched_instruction), zero_extend(PC));
-      };
-      // When ELP is set to LP_EXPECTED, if the next instruction in
-      // the instruction stream is not LPAD, then a software check
-      // exception with a landing pad fault code is thrown.
-      if is_landing_pad_expected() & not(is_lpad_instruction(fetched_instruction)) then {
-        let r = trap(make_landing_pad_exception());
-        let executed_instruction : option(instruction) = None();
-        let instr_info = struct instr_info { fetch_privilege, fetch_trigger_reentrance, fetched_instruction, executed_instruction, instbits, compressed = false };
-        Step_Execute(r, instr_info)
-      } else {
-        nextPC = PC + 4;
-        let (executed_instruction, result) : (option(instruction), ExecutionResult) = match execute(fetched_instruction) {
-          ExecuteAs(other_inst) => (Some(other_inst), execute(other_inst)),
-          result => (Some(fetched_instruction), result),
-        };
-        let instr_info = struct instr_info { fetch_privilege, fetch_trigger_reentrance, fetched_instruction, executed_instruction, instbits, compressed = false };
-        Step_Execute(result, instr_info)
-      }
-    }
   }
 }
 
@@ -324,9 +305,9 @@ function try_step(step_no : nat, exit_wait : bool) -> bool = {
       set_next_pc(exception_handler(priv, ctx, pc))
     },
     Step_Execute(Illegal_Instruction(), instr_info) =>
-      handle_exception(make_instr_exception_context(E_Illegal_Instr(), zero_extend(instr_info.instbits))),
+      handle_exception(make_instr_exception_context(E_Illegal_Instr(), instr_info.instbits[xlen - 1 .. 0])),
     Step_Execute(Virtual_Instruction(), instr_info) =>
-      handle_exception(make_instr_exception_context(E_Virtual_Instr(), zero_extend(instr_info.instbits))),
+      handle_exception(make_instr_exception_context(E_Virtual_Instr(), instr_info.instbits[xlen - 1 .. 0])),
     Step_Execute(Enter_Wait(wr), instr_info) => {
       if wait_is_nop(wr) then {
         // This is the same as the RETIRE_OK case.

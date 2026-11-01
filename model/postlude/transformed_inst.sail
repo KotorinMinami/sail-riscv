@@ -56,7 +56,7 @@ function transform_exception_context(ctx : ExceptionContext, instr_info : instr_
         //    1. Expand the compressed instruction to its 32-bit equivalent.
         //    2. Transform the 32-bit equivalent instruction.
         //    3. Replace bit 1 with a 0."
-        let tinst = if instr_info.compressed then [tinst with 1 = bitzero] else tinst;
+        let tinst = if instr_info.length_bytes == 2 then [tinst with 1 = bitzero] else tinst;
         { ctx with excinst = Some(zero_extend(tinst)) }
       },
     }

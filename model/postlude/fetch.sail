@@ -51,6 +51,34 @@ private function fetch_bytes forall 'n, 'n in {2, 4} . (fetch_start : xlenbits, 
   }
 }
 
+function long48_needs_third_parcel(a : bits(16)) -> bool = a[4..0] == 0b11111
+
+// Experimental length scheme: C, not A, distinguishes 48 from longer encodings.
+// Never access a fourth parcel for a class we cannot execute.
+private function fetch_long48() -> FetchResult = {
+  let a : bits(16) = match fetch_bytes(PC, PC, 2) {
+    FetchBytes_Ext_Error(e) => return F_Ext_Error(e),
+    FetchBytes_Exception(e) => return F_Error(e),
+    FetchBytes_Success(h) => h,
+  };
+  if isRVC(a) & (a != 0x0000 | currentlyEnabled(Ext_Zca)) then return F_RVC(a);
+  let b : bits(16) = match fetch_bytes(PC, PC + 2, 2) {
+    FetchBytes_Ext_Error(e) => return F_Ext_Error(e),
+    FetchBytes_Exception(e) => return F_Error(e),
+    FetchBytes_Success(h) => h,
+  };
+  if not(long48_needs_third_parcel(a)) then return F_Base(b @ a);
+  let c : bits(16) = match fetch_bytes(PC, PC + 4, 2) {
+    FetchBytes_Ext_Error(e) => return F_Ext_Error(e),
+    FetchBytes_Exception(e) => return F_Error(e),
+    FetchBytes_Success(h) => h,
+  };
+  let raw = c @ b @ a;
+  if c[1..0] != 0b11 | raw == 0xffffffffffff
+  then F_Long48(raw)
+  else F_LongPrefix(raw)
+}
+
 private function fetch() -> FetchResult = {
   // TODO: Add a parameter to try_step() to allow forcing the fetch result and use that instead.
 
@@ -64,8 +92,10 @@ private function fetch() -> FetchResult = {
     None()  => (),
   };
 
-  if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(currentlyEnabled(Ext_Zca))))
+  if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(enabled_ialign16())))
   then return F_Error(exception_context(E_Fetch_Addr_Align(), PC));
+
+  if currentlyEnabled(Ext_Xlong48) then return fetch_long48();
 
   // For a PC aligned at ILEN=32, perform an atomic fetch for Ziccif.
   //
