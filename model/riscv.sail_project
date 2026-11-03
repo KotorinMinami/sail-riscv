@@ -110,8 +110,14 @@ extensions {
   }
 
   Zl {
-    requires core, I_types, I_insts, sys, Zicfilp_regs
-    files extensions/Zl/zl_insts.sail
+    Zl_types {
+      before core
+      files extensions/Zl/zl_types.sail
+    }
+    Zl_insts {
+      requires core, I_types, I_insts, sys, Zicfilp_regs, Zl_types
+      files extensions/Zl/zl_insts.sail
+    }
   }
 
   A {

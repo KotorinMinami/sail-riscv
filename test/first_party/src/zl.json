@@ -1,0 +1,10 @@
+{
+  "extensions": {
+    "Zl": {
+      "supported": true
+    },
+    "Ziccif": {
+      "supported": false
+    }
+  }
+}

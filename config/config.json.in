@@ -929,7 +929,9 @@
       "supported": true
     },
     "Zl": {
-      "supported": false
+      "supported": false,
+      // Whether L.MULBO is implemented. It also requires M or Zmmul.
+      "mulbo": true
     },
     "Zba": {
       "supported": false
