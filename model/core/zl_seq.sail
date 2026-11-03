@@ -8,7 +8,7 @@
 
 // The Isla footprint entry accepts only 16/32-bit opcodes, not parcel fetches.
 $ifdef SYMBOLIC
-function backend_supports_xlong48() -> bool = false
+function backend_supports_zl() -> bool = false
 $else
-function backend_supports_xlong48() -> bool = true
+function backend_supports_zl() -> bool = true
 $endif

@@ -23,7 +23,7 @@ core {
     core/rvfi_dii_v1.sail,
     core/rvfi_dii_v2.sail,
     core/platform_config.sail,
-    if $RMEM then core/xlong48_rmem.sail else core/xlong48_seq.sail,
+    if $RMEM then core/zl_rmem.sail else core/zl_seq.sail,
     core/extensions.sail,
     core/types_common.sail,
     core/types_ext.sail,
@@ -109,9 +109,9 @@ extensions {
     }
   }
 
-  Xlong48 {
+  Zl {
     requires core, I_types, I_insts, sys, Zicfilp_regs
-    files extensions/Xlong48/xlong48_insts.sail
+    files extensions/Zl/zl_insts.sail
   }
 
   A {

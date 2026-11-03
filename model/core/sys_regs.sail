@@ -146,7 +146,7 @@ private function legalize_misa(m : Misa, v : xlenbits) -> Misa = {
   let S = if hartSupports(Ext_S) & U == 0b1 then { if config extensions.S.mutable_misa then v[S] else m[S] } else 0b0;
   let H = if hartSupports(Ext_H) & S == 0b1 & U == 0b1 then { if config extensions.H.mutable_misa then v[H] else m[H] } else 0b0;
   // Suppress updates to MISA if by disabling C next PC would become misaligned or an extension vetoes
-  if   (C == 0b0 & m[C] == 0b1 & ((nextPC[1] == 0b1 & not(currentlyEnabled(Ext_Xlong48))) | ext_veto_disable_C()))
+  if   (C == 0b0 & m[C] == 0b1 & ((nextPC[1] == 0b1 & not(currentlyEnabled(Ext_Zl))) | ext_veto_disable_C()))
   then m
   else [m with
     A, B, C, D, F, H, M, S, U, V,

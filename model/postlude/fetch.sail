@@ -95,7 +95,7 @@ private function fetch() -> FetchResult = {
   if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(enabled_ialign16())))
   then return F_Error(exception_context(E_Fetch_Addr_Align(), PC));
 
-  if currentlyEnabled(Ext_Xlong48) then return fetch_long48();
+  if currentlyEnabled(Ext_Zl) then return fetch_long48();
 
   // For a PC aligned at ILEN=32, perform an atomic fetch for Ziccif.
   //

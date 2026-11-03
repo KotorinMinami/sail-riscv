@@ -853,9 +853,6 @@
     "Zihpm": {
       "supported": true
     },
-    "Xlong48": {
-      "supported": false
-    },
     "Zilx": {
       "supported": true
     },
@@ -930,6 +927,9 @@
     },
     "Zcmop": {
       "supported": true
+    },
+    "Zl": {
+      "supported": false
     },
     "Zba": {
       "supported": false

@@ -28,11 +28,11 @@ scattered function hartSupports
 val currentlyEnabled : extension -> bool
 scattered function currentlyEnabled
 
-// Local experimental (non-standard) 48-bit long-instruction encoding.
-enum clause extension = Ext_Xlong48
-mapping clause extensionName = Ext_Xlong48 <-> "xlong48"
-function clause hartSupports(Ext_Xlong48) = backend_supports_xlong48() & sys_enable_experimental_extensions() & config extensions.Xlong48.supported
-function clause currentlyEnabled(Ext_Xlong48) = hartSupports(Ext_Xlong48)
+// Long Instructions (draft, experimental). Only the 48-bit forms are implemented.
+enum clause extension = Ext_Zl
+mapping clause extensionName = Ext_Zl <-> "zl"
+function clause hartSupports(Ext_Zl) = backend_supports_zl() & sys_enable_experimental_extensions() & config extensions.Zl.supported
+function clause currentlyEnabled(Ext_Zl) = hartSupports(Ext_Zl)
 
 // Note, these are sorted according to the canonical ordering vaguely described
 // in the `Subset Naming Convention` section of the unprivileged spec.
@@ -672,8 +672,8 @@ mapping clause extensionName = Ext_Supm <-> "supm"
 function clause hartSupports(Ext_Supm) = hartSupports(Ext_U) & (if hartSupports(Ext_S) then hartSupports(Ext_Ssnpm) else hartSupports(Ext_Smnpm))
 function clause currentlyEnabled(Ext_Supm) = hartSupports(Ext_Supm) & currentlyEnabled(Ext_U)
 
-function supports_ialign16() -> bool = hartSupports(Ext_Zca) | hartSupports(Ext_Xlong48)
-function enabled_ialign16() -> bool = currentlyEnabled(Ext_Zca) | currentlyEnabled(Ext_Xlong48)
+function supports_ialign16() -> bool = hartSupports(Ext_Zca) | hartSupports(Ext_Zl)
+function enabled_ialign16() -> bool = currentlyEnabled(Ext_Zca) | currentlyEnabled(Ext_Zl)
 
 // When adding a new extension X, we need to make sure that if X being supported
 // depends on Y being supported, then the value associated to X is _greater_ than
@@ -964,6 +964,6 @@ let extensions_ordered_for_isa_string = [
   // Debug extensions
   Ext_Sdtrig,
 
-  // Non-standard experimental extensions
-  Ext_Xlong48,
+  // Draft experimental extensions
+  Ext_Zl,
 ]

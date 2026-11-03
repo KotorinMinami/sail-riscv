@@ -7,4 +7,4 @@
 // =======================================================================================
 
 // Long instructions have not been specified for the RMEM execution interface.
-function backend_supports_xlong48() -> bool = false
+function backend_supports_zl() -> bool = false

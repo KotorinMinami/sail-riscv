@@ -1139,7 +1139,7 @@ private function check_extension_param_constraints() -> bool = {
   };
   if not(config extensions.H.hedeleg_zero_writable : bool) & (config extensions.H.supported : bool) & not(supports_ialign16()) then {
     valid = false;
-    print_endline("extensions.H.hedeleg_zero_writable is false but IALIGN=32 (neither Zca nor Xlong48 is supported): hedeleg[0] must be writable when IALIGN=32.")
+    print_endline("extensions.H.hedeleg_zero_writable is false but IALIGN=32 (neither Zca nor Zl is supported): hedeleg[0] must be writable when IALIGN=32.")
   };
 
   valid
@@ -1298,23 +1298,23 @@ function validate_event_selectors() = true
 private function check_platform_constraints() -> bool =
   validate_event_selectors()
 
-private function check_long48() -> bool = {
-  if not(config extensions.Xlong48.supported : bool) then return true;
+private function check_zl() -> bool = {
+  if not(config extensions.Zl.supported : bool) then return true;
   var valid : bool = true;
-  if not(backend_supports_xlong48()) then {
-    print_endline("Xlong48 is not supported by this backend.");
+  if not(backend_supports_zl()) then {
+    print_endline("Zl is not supported by this backend.");
     valid = false;
   };
   if not(sys_enable_experimental_extensions()) then {
-    print_endline("Xlong48 requires --enable-experimental-extensions.");
+    print_endline("Zl requires --enable-experimental-extensions.");
     valid = false;
   };
   if hartSupports(Ext_Ziccif) then {
-    print_endline("Xlong48 with Ziccif is not implemented.");
+    print_endline("Zl with Ziccif is not implemented.");
     valid = false;
   };
   if get_config_rvfi() then {
-    print_endline("Xlong48 is not supported by the 32-bit RVFI-DII interface.");
+    print_endline("Zl is not supported by the 32-bit RVFI-DII interface.");
     valid = false;
   };
   valid
@@ -1337,5 +1337,5 @@ function config_is_valid() -> bool = {
   & check_version_constraints()
   & check_platform_constraints()
   & check_stateen_config()
-  & check_long48()
+  & check_zl()
 }
