@@ -162,6 +162,7 @@ add_first_party_experimental_override_test("test_zl_jump.S" "zl.json")
 add_first_party_experimental_override_test("test_zl_branch.S" "zl.json")
 add_first_party_experimental_override_test("test_zl_branch_bits.S" "zl.json")
 add_first_party_experimental_override_test("test_zl_branch_overflow.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_branch_ext.S" "zl.json")
 add_first_party_experimental_override_test("test_zl_fetch.S" "zl.json")
 
 add_first_party_test_with_config("test_tval_truncate_invalid_physaddr.S" "rv64gcvh_zfbfmin" 64 "tval_truncate_invalid_physaddr.json")

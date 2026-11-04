@@ -55,6 +55,18 @@
 #define BLTUI 6
 #define BGEUI 7
 
+#define F3_BFEQI 0
+#define F3_BFNEI 1
+#define F3_BTBL 2
+#define F3_BRNG 4
+#define F3_BRNG_INV 5
+#define F3_BRNGU 6
+#define F3_BRNGU_INV 7
+
+#define ES_1B 0
+#define ES_2B 1
+#define ES_4B 2
+
 #define LI_LI 0
 #define LI_LUI 1
 #define LI_AIPC 2
@@ -166,6 +178,24 @@
 .macro zl64_bi funct3, rs1, imm, off
   zl64 (((((\off) >> 20) & 1) << 31) | (((\imm) & 0x7ff) << 20) | (\rs1 << 15) | (\funct3 << 12) | ((((\off) >> 1) & 0xf) << 8) | ((((\off) >> 11) & 1) << 7) | (3 << 5) | 0x1f), \
        ((((((\imm) >> 11) & 0x1fff) << 19) | ((((\off) >> 12) & 0xff) << 11) | ((((\off) >> 5) & 0x3f) << 5) | (1 << 2) | 3))
+.endm
+
+// BRANCH-EXT64 (L4BF-type).
+.macro zl64_bf funct3, rs1, pos, len, imm, off
+  zl64 (((((\off) >> 20) & 1) << 31) | (((\imm) & 0x7ff) << 20) | (\rs1 << 15) | (\funct3 << 12) | ((((\off) >> 1) & 0xf) << 8) | ((((\off) >> 11) & 1) << 7) | (3 << 5) | 0x1f), \
+       ((((((\imm) >> 11) & 1) << 31) | ((((\len - 1) & 0x3f) << 25)) | (((\pos) & 0x3f) << 19) | ((((\off) >> 12) & 0xff) << 11) | ((((\off) >> 5) & 0x3f) << 5) | (2 << 2) | 3))
+.endm
+
+// BRANCH-EXT64 (L4BR-type).
+.macro zl64_brng funct3, rs1, lo_val, hi_val, off
+  zl64 (((((\off) >> 20) & 1) << 31) | (((\lo_val) & 0x7ff) << 20) | (\rs1 << 15) | (\funct3 << 12) | ((((\off) >> 1) & 0xf) << 8) | ((((\off) >> 11) & 1) << 7) | (3 << 5) | 0x1f), \
+       ((((((\lo_val) >> 11) & 0x1f) << 27) | ((((\hi_val - \lo_val) & 0xff) << 19)) | ((((\off) >> 12) & 0xff) << 11) | ((((\off) >> 5) & 0x3f) << 5) | (2 << 2) | 3))
+.endm
+
+// BRANCH-EXT64 (L4BT-type).
+.macro zl64_btbl rs1, bias, bound, es, off
+  zl64 (((((\off) >> 20) & 1) << 31) | (((\bias) & 0x7ff) << 20) | (\rs1 << 15) | (2 << 12) | ((((\off) >> 1) & 0xf) << 8) | ((((\off) >> 11) & 1) << 7) | (3 << 5) | 0x1f), \
+       ((((((\bias) >> 11) & 1) << 31) | (((\bound) & 0x3ff) << 21) | (((\es) & 3) << 19) | ((((\off) >> 12) & 0xff) << 11) | ((((\off) >> 5) & 0x3f) << 5) | (2 << 2) | 3))
 .endm
 
 // The branch must be taken: it skips over `j fail` (6 + 4 bytes).

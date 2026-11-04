@@ -607,3 +607,156 @@ function clause execute L64_BRANCH_IMM(off, imm, rs1, op) = {
 
 mapping clause assembly = L64_BRANCH_IMM(off, imm, rs1, op)
   <-> "l." ^ zl_bimm_mnemonic(op) ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_signed_24(imm) ^ sep() ^ hex_bits_signed_21(off)
+
+// BRANCH-EXT64 (L4BF, L4BR, L4BT): inst[6:5] = 11, inst[36:34] = 010.
+
+// funct3 000/001: L.BFEQI and L.BFNEI (L4BF-type).
+// Branch if rs1[pos+len-1:pos] equals/differs from sext(imm)[len-1:0] (imm 12 bits).
+// pos + len > XLEN is reserved.
+union clause instruction = L64_BFEQI : (bits(21), bits(12), bits(6), bits(6), regidx)
+union clause instruction = L64_BFNEI : (bits(21), bits(12), bits(6), bits(6), regidx)
+
+mapping clause encdec_long64 = L64_BFEQI(off @ 0b0, imm, len_minus_1, pos, rs1)
+  <-> imm[11] @ len_minus_1 @ pos @ off[18..11] @ off[9..4] @ 0b010 @ 0b11 @ off[19] @ imm[10..0] @ encdec_reg(rs1) @ 0b000 @ off[3..0] @ off[10] @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl) & (unsigned(pos) + unsigned(len_minus_1) + 1 <= xlen)
+
+mapping clause encdec_long64 = L64_BFNEI(off @ 0b0, imm, len_minus_1, pos, rs1)
+  <-> imm[11] @ len_minus_1 @ pos @ off[18..11] @ off[9..4] @ 0b010 @ 0b11 @ off[19] @ imm[10..0] @ encdec_reg(rs1) @ 0b001 @ off[3..0] @ off[10] @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl) & (unsigned(pos) + unsigned(len_minus_1) + 1 <= xlen)
+
+function clause execute L64_BFEQI(off, imm, len_minus_1, pos, rs1) = {
+  let len = unsigned(len_minus_1) + 1;
+  let mask : xlenbits = if len == xlen then ones() else (zero_extend(0b1) << len) - 1;
+  let field : xlenbits = (X(rs1) >> unsigned(pos)) & mask;
+  let target_imm : xlenbits = sign_extend(imm) & mask;
+  zl_branch(field == target_imm, off)
+}
+function clause execute L64_BFNEI(off, imm, len_minus_1, pos, rs1) = {
+  let len = unsigned(len_minus_1) + 1;
+  let mask : xlenbits = if len == xlen then ones() else (zero_extend(0b1) << len) - 1;
+  let field : xlenbits = (X(rs1) >> unsigned(pos)) & mask;
+  let target_imm : xlenbits = sign_extend(imm) & mask;
+  zl_branch(field != target_imm, off)
+}
+
+mapping clause assembly = L64_BFEQI(off, imm, len_minus_1, pos, rs1)
+  <-> "l.bfeqi" ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_6(pos) ^ sep() ^ hex_bits_6(len_minus_1) ^ sep() ^ hex_bits_signed_12(imm) ^ sep() ^ hex_bits_signed_21(off)
+mapping clause assembly = L64_BFNEI(off, imm, len_minus_1, pos, rs1)
+  <-> "l.bfnei" ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_6(pos) ^ sep() ^ hex_bits_6(len_minus_1) ^ sep() ^ hex_bits_signed_12(imm) ^ sep() ^ hex_bits_signed_21(off)
+
+// funct3 100/101/110/111: L.BRNG[U][.INV] (L4BR-type).
+// lo is 16 bits; hi = lo + (hi - lo), with hi - lo in 0..255.
+mapping encdec_zl_brng : zl_brng <-> bits(3) = {
+  ZL_BRNG      <-> 0b100,
+  ZL_BRNG_INV  <-> 0b101,
+  ZL_BRNGU     <-> 0b110,
+  ZL_BRNGU_INV <-> 0b111,
+}
+
+mapping zl_brng_mnemonic : zl_brng <-> string = {
+  ZL_BRNG      <-> "brng",
+  ZL_BRNG_INV  <-> "brng.inv",
+  ZL_BRNGU     <-> "brngu",
+  ZL_BRNGU_INV <-> "brngu.inv",
+}
+
+union clause instruction = L64_BRNG : (bits(21), bits(8), bits(16), regidx, zl_brng)
+
+mapping clause encdec_long64 = L64_BRNG(off @ 0b0, hi_lo, lo, rs1, op)
+  <-> lo[15..11] @ hi_lo @ off[18..11] @ off[9..4] @ 0b010 @ 0b11 @ off[19] @ lo[10..0] @ encdec_reg(rs1) @ encdec_zl_brng(op) @ off[3..0] @ off[10] @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl)
+
+function clause execute L64_BRNG(off, hi_lo, lo, rs1, op) = {
+  let a = X(rs1);
+  let delta : xlenbits = zero_extend(hi_lo);
+  let taken : bool = match op {
+    ZL_BRNG => {
+      let lo_val : xlenbits = sign_extend(lo);
+      let hi_val : xlenbits = lo_val + delta;
+      (lo_val <=_s a) & (a <=_s hi_val)
+    },
+    ZL_BRNG_INV => {
+      let lo_val : xlenbits = sign_extend(lo);
+      let hi_val : xlenbits = lo_val + delta;
+      not((lo_val <=_s a) & (a <=_s hi_val))
+    },
+    ZL_BRNGU => {
+      let lo_val : xlenbits = zero_extend(lo);
+      let hi_val : xlenbits = lo_val + delta;
+      (lo_val <=_u a) & (a <=_u hi_val)
+    },
+    ZL_BRNGU_INV => {
+      let lo_val : xlenbits = zero_extend(lo);
+      let hi_val : xlenbits = lo_val + delta;
+      not((lo_val <=_u a) & (a <=_u hi_val))
+    },
+  };
+  zl_branch(taken, off)
+}
+
+mapping clause assembly = L64_BRNG(off, hi_lo, lo, rs1, op)
+  <-> "l." ^ zl_brng_mnemonic(op) ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_16(lo) ^ sep() ^ hex_bits_8(hi_lo) ^ sep() ^ hex_bits_signed_21(off)
+
+// funct3 010: L.BTBL (L4BT-type).
+// i = rs1 - sext(bias); if i <u bound then read signed size-byte entry e from
+// table + i*size and jump to pc + (e << 1); else fall through.
+// es: 00 -> 1B, 01 -> 2B, 10 -> 4B, 11 reserved.
+mapping zl_btbl_esize : bits(2) <-> string = {
+  0b00 <-> "1",
+  0b01 <-> "2",
+  0b10 <-> "4",
+  0b11 <-> "reserved",
+}
+
+union clause instruction = L64_BTBL : (bits(21), bits(10), bits(2), bits(12), regidx)
+
+mapping clause encdec_long64 = L64_BTBL(off @ 0b0, bound, es, bias, rs1)
+  <-> bias[11] @ bound @ es @ off[18..11] @ off[9..4] @ 0b010 @ 0b11 @ off[19] @ bias[10..0] @ encdec_reg(rs1) @ 0b010 @ off[3..0] @ off[10] @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl) & es != 0b11
+
+function clause execute L64_BTBL(off, bound, es, bias, rs1) = {
+  let i : xlenbits = X(rs1) - sign_extend(bias);
+  let bound_ext : xlenbits = zero_extend(bound);
+  if i <_u bound_ext then {
+    let scaled_i : xlenbits = match es {
+      0b00 => i,
+      0b01 => i << 1,
+      0b10 => i << 2,
+      _    => internal_error(__FILE__, __LINE__, "reserved es"),
+    };
+    let entry_offset : xlenbits = sign_extend(off) + scaled_i;
+    let access : MemoryAccessType(mem_payload) = Load(Data);
+    let access_info = default_access_info(access);
+    let pcrel_addr = zl_pcrel_addr(entry_offset, access_info);
+    let read_res : result(xlenbits, ExecutionResult) = match es {
+      0b00 => match vmem_read_addr(pcrel_addr, 1, access, access_info, false, false, false) {
+        Ok(data) => Ok(sign_extend(data)),
+        Err(e)   => Err(e),
+      },
+      0b01 => match vmem_read_addr(pcrel_addr, 2, access, access_info, false, false, false) {
+        Ok(data) => Ok(sign_extend(data)),
+        Err(e)   => Err(e),
+      },
+      0b10 => match vmem_read_addr(pcrel_addr, 4, access, access_info, false, false, false) {
+        Ok(data) => Ok(sign_extend(data)),
+        Err(e)   => Err(e),
+      },
+      _ => internal_error(__FILE__, __LINE__, "reserved es"),
+    };
+    match read_res {
+      Ok(e) => {
+        set_elp_expected();
+        match jump_to(PC + (e << 1)) {
+          Retire_Success() => RETIRE_SUCCESS,
+          failure => failure,
+        }
+      },
+      Err(e) => e,
+    }
+  } else {
+    RETIRE_SUCCESS
+  }
+}
+
+mapping clause assembly = L64_BTBL(off, bound, es, bias, rs1)
+  <-> "l.btbl" ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_signed_12(bias) ^ sep() ^ hex_bits_10(bound) ^ sep() ^ hex_bits_signed_21(off) ^ sep() ^ zl_btbl_esize(es)
