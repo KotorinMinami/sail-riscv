@@ -97,6 +97,7 @@ set(common_deps
     "src/common/nanoprintf.h"
     "src/common/runtime.c"
     "src/common/runtime.h"
+    "src/common/zl.h"
 )
 
 set(tests)
@@ -155,7 +156,13 @@ add_first_party_override_test("test_vs_ebreak_double_trap_xtval_zero_gva.S" "ssd
 add_first_party_override_test("test_mideleg_read_only_one.S" "mideleg_read_only_one.json")
 
 add_first_party_experimental_test("test_zilx.S")
-add_first_party_experimental_override_test("test_zl.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_imm.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_load_store.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_jump.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_branch.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_branch_bits.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_branch_overflow.S" "zl.json")
+add_first_party_experimental_override_test("test_zl_fetch.S" "zl.json")
 
 add_first_party_test_with_config("test_tval_truncate_invalid_physaddr.S" "rv64gcvh_zfbfmin" 64 "tval_truncate_invalid_physaddr.json")
 
