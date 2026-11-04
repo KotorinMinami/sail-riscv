@@ -29,6 +29,45 @@ zl_test_begin
   li a0, 5
   zl_li LI_AUIPC, A0, 3
   check a0, 0x300000005
+
+  // 64-bit L.LI with 46-bit immediate.
+  zl64_li LI64_LI, A0, 0x123456789ab
+  check a0, 0x123456789ab
+  zl64_li LI64_LI, A0, -0x123456789ab
+  check a0, -0x123456789ab
+  zl64_li LI64_LI, A0, 0x1fffffffffff
+  check a0, 0x1fffffffffff
+  zl64_li LI64_LI, A0, -0x200000000000
+  check a0, -0x200000000000
+  zl64_li LI64_LI, ZERO, 0x123456789ab
+  check zero, 0
+
+  // 64-bit L.AIPC: a0 = pc + imm46.
+  zl64_li LI64_AIPC, A0, 0x12345678
+  auipc t1, 0
+  li t2, 0x12345678 - 8
+  add t1, t1, t2
+  bne a0, t1, fail
+  zl64_li LI64_AIPC, A0, -0x100
+  auipc t1, 0
+  addi t1, t1, -0x100 - 8
+  bne a0, t1, fail
+#else
+  // LI64 is reserved on RV32 and raises an illegal-instruction exception.
+  csrr t4, mtvec
+  la t0, illegal_li64
+  csrw mtvec, t0
+1:
+  zl64_li LI64_LI, A0, 0x12345678
+  j fail
+.p2align 6
+illegal_li64:
+  csrw mtvec, t4
+  csrr t0, mcause
+  check t0, 2
+  csrr t0, mepc
+  la t1, 1b
+  bne t0, t1, fail
 #endif
 
   // L.ADDI/L.XORI/L.ORI/L.ANDI with 26-bit immediates.

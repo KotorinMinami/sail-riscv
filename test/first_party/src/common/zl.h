@@ -60,6 +60,9 @@
 #define LI_AIPC 2
 #define LI_AUIPC 3
 
+#define LI64_LI 0
+#define LI64_AIPC 1
+
 #define ADDI 0
 #define XORI 4
 #define ORI 6
@@ -77,10 +80,22 @@
   .2byte (\hi) & 0xffff
 .endm
 
+// 64-bit instruction from inst[31:0] and inst[63:32].
+.macro zl64 lo, hi
+  .4byte (\lo) & 0xffffffff
+  .4byte (\hi) & 0xffffffff
+.endm
+
 // LI (L3U-type).
 .macro zl_li f2, rd, imm
   zl48 ((\imm) & 0xfffff000) | (\rd << 7) | 0x1f, \
        (((\imm) & 0xfff) << 4) | (\f2 << 2)
+.endm
+
+// LI64 (L4U-type).
+.macro zl64_li f1, rd, imm
+  zl64 (((((\imm) >> 45) & 1) << 31) | ((\imm) & 0x7ffff000) | (\rd << 7) | 0x1f), \
+       ((((((\imm) >> 31) & 0x3fff) << 18) | (((\imm) & 0xfff) << 6) | (\f1 << 5) | 3))
 .endm
 
 // OP-IMM (op = 1) and LOAD (group = 1, op = 0), L3I-type.

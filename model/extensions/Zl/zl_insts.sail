@@ -530,3 +530,35 @@ mapping clause assembly = L_LOAD_PC(off, rd, is_unsigned, width)
   <-> "l.l" ^ width_mnemonic(width) ^ maybe_u(is_unsigned) ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_30(off)
 mapping clause assembly = L_STORE_PC(off, rs2, width)
   <-> "l.s" ^ width_mnemonic(width) ^ spc() ^ reg_name(rs2) ^ sep() ^ hex_bits_signed_30(off)
+
+// =======================================================================================
+// 64-bit Zl instructions
+// =======================================================================================
+
+// LI64 (L4U-type): 46-bit immediate with sign bit at inst[31] (imm[45]).
+// f1 = inst[37] selects L.LI (0) and L.AIPC (1). Reserved on RV32 per draft.
+union clause instruction = L64_LI : (bits(46), regidx)
+union clause instruction = L64_AIPC : (bits(46), regidx)
+
+mapping clause encdec_long64 = L64_LI(imm, rd)
+  <-> imm[44..31] @ imm[11..0] @ 0b0 @ 0b000 @ 0b11 @ imm[45] @ imm[30..12] @ encdec_reg(rd) @ 0b00 @ 0b11111
+  when currentlyEnabled(Ext_Zl) & xlen == 64
+mapping clause encdec_long64 = L64_AIPC(imm, rd)
+  <-> imm[44..31] @ imm[11..0] @ 0b1 @ 0b000 @ 0b11 @ imm[45] @ imm[30..12] @ encdec_reg(rd) @ 0b00 @ 0b11111
+  when currentlyEnabled(Ext_Zl) & xlen == 64
+
+function clause execute L64_LI(imm, rd) = {
+  assert(xlen == 64);
+  X(rd) = sign_extend(imm);
+  RETIRE_SUCCESS
+}
+function clause execute L64_AIPC(imm, rd) = {
+  assert(xlen == 64);
+  X(rd) = PC + sign_extend(imm);
+  RETIRE_SUCCESS
+}
+
+mapping clause assembly = L64_LI(imm, rd)
+  <-> "l.li" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_46(imm)
+mapping clause assembly = L64_AIPC(imm, rd)
+  <-> "l.aipc" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_46(imm)
