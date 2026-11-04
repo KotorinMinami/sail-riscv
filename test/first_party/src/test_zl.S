@@ -114,6 +114,11 @@
   zl48 ((((\imm) >> 22) & 1) << 31) | (((\imm) & 0x7ff) << 20) | (\rs1 << 15) | (\rd << 7) | (3 << 5) | 0x1f, \
        (1 << 13) | ((((\imm) >> 11) & 0x7ff) << 2)
 .endm
+// L.JALT (L3JT-type); off counts table entries.
+.macro zl_jalt rd, rs1, off
+  zl48 ((((\off) >> 25) & 1) << 31) | ((((\off) >> 3) & 0x7ff) << 20) | (\rs1 << 15) | (((\off) & 7) << 12) | (\rd << 7) | (3 << 5) | 0x1f, \
+       (2 << 13) | ((((\off) >> 14) & 0x7ff) << 2)
+.endm
 
 // BRANCH (L3B-type and its variants).
 .macro zl_b funct6, funct3, rs1, rs2, off
@@ -156,9 +161,11 @@
 .option norvc
 
 #if __riscv_xlen == 64
+#define PTR .8byte
 #define SAVE_RA sd ra, 0(sp)
 #define RESTORE_RA ld ra, 0(sp)
 #else
+#define PTR .4byte
 #define SAVE_RA sw ra, 0(sp)
 #define RESTORE_RA lw ra, 0(sp)
 #endif
@@ -272,6 +279,78 @@ pc_data:
   j fail
   addi t0, t0, 10
   bne a0, t0, fail
+
+  // L.JALT: rd = pc + 6; pc = mem[pc + (off + rs1) * XLEN/8] & ~1. Each
+  // table sits right before its L.JALT, which is therefore XLEN-aligned.
+  li a1, 1
+  j 1f
+.balign 8
+  PTR fail
+  PTR 2f + 1  // bit 0 is cleared
+1:
+  zl_jalt RA, A1, -2
+3:
+  j fail
+2:
+  la t1, 3b
+  bne ra, t1, fail
+  // Tail jump (rd = x0) with a negative index.
+  li a1, -1
+  j 1f
+.balign 8
+  PTR 2f
+1:
+  zl_jalt ZERO, A1, 0
+  j fail
+2:
+  // rs1 is read before rd is written.
+  li a1, 1
+  j 1f
+.balign 8
+  PTR fail
+  PTR 2f
+1:
+  zl_jalt A1, A1, -2
+3:
+  j fail
+2:
+  la t1, 3b
+  bne a1, t1, fail
+
+  // With Zicfilp (mseccfg.MLPE), the target of L.JALT needs a landing pad.
+  li t0, 1 << 10
+  csrs 0x747, t0
+  j 1f
+.balign 8
+  PTR 2f
+1:
+  zl_jalt ZERO, ZERO, -1
+  j fail
+.balign 4
+2:
+  .4byte 0x00000017  // lpad 0
+  // Without one, the target raises a software-check exception.
+  csrr t4, mtvec
+  la t0, lp_fault
+  csrw mtvec, t0
+  j 1f
+.balign 8
+  PTR 2f
+1:
+  zl_jalt ZERO, ZERO, -1
+  j fail
+.balign 4
+2:
+  j fail
+.p2align 6
+lp_fault:
+  csrw mtvec, t4
+  li t0, 1 << 10
+  csrc 0x747, t0
+  csrr t0, mcause
+  check t0, 18
+  csrr t0, mtval
+  check t0, 2
 
   // Register-register branches.
   li a0, 5

@@ -90,6 +90,10 @@ function clause execute L_ITYPE(imm, rs1, rd, op) = {
 mapping clause assembly = L_ITYPE(imm, rs1, rd, op)
   <-> "l." ^ itype_mnemonic(op) ^ spc() ^ reg_name(rd) ^ sep() ^ reg_name(rs1) ^ sep() ^ hex_bits_signed_26(imm)
 
+// pc + offset, with pointer masking applied as for any explicit data access.
+private function zl_pcrel_addr(offset : xlenbits, access_info : AccessInfo) -> virtaddr =
+  transform_effective_address(Virtaddr(PC + offset), access_info)
+
 private function zl_bop_taken forall 'n, 'n > 0. (op : bop, a : bits('n), b : bits('n)) -> bool =
   match op {
     BEQ  => a == b,
@@ -119,7 +123,8 @@ union clause instruction = L_JAL : (bits(32), regidx)
 union clause instruction = L_JALR : (bits(23), regidx, regidx)
 union clause instruction = L_BRANCH : (bits(21), regidx, regidx, bop)
 
-// JUMP: f3 = inst[47:45] selects L.JAL (000, L3J-type) and L.JALR (001).
+// JUMP: f3 = inst[47:45] selects L.JAL (000, L3J-type), L.JALR (001) and
+// L.JALT (010, L3JT-type).
 mapping clause encdec_long48 = L_JAL(imm @ 0b0, rd)
   <-> 0b000 @ imm[29..19] @ 0b00 @ imm[30] @ imm[9..0] @ imm[10] @ imm[18..11] @ encdec_reg(rd) @ 0b11 @ 0b11111
   when currentlyEnabled(Ext_Zl)
@@ -156,6 +161,38 @@ mapping clause assembly = L_JAL(imm, rd)
   <-> "l.jal" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_32(imm)
 mapping clause assembly = L_JALR(imm, rs1, rd)
   <-> "l.jalr" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_23(imm) ^ "(" ^ reg_name(rs1) ^ ")"
+
+// L.JALT calls through a table of XLEN-bit pointers: the target is read from
+// pc + (sext(off) + rs1) * XLEN/8, i.e. off and rs1 count table entries. The
+// table entry is read like a data load (the draft expects cores to crack the
+// instruction into a load and an indirect jump), and with Zicfilp the target
+// needs a landing pad.
+union clause instruction = L_JALT : (bits(26), regidx, regidx)
+
+mapping clause encdec_long48 = L_JALT(off, rs1, rd)
+  <-> 0b010 @ off[24..14] @ 0b00 @ off[25] @ off[13..3] @ encdec_reg(rs1) @ off[2..0] @ encdec_reg(rd) @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl)
+
+function clause execute L_JALT(off, rs1, rd) = {
+  let index : xlenbits = sign_extend(off) + X(rs1);
+  let entry_offset : xlenbits = if xlen == 32 then index << 2 else index << 3;
+  let access : MemoryAccessType(mem_payload) = Load(Data);
+  let access_info = default_access_info(access);
+  match vmem_read_addr(zl_pcrel_addr(entry_offset, access_info), xlen_bytes, access, access_info, false, false, false) {
+    Ok(target) => {
+      set_elp_expected();
+      let link = get_next_pc();
+      match jump_to([target with 0 = 0b0]) {
+        Retire_Success() => { X(rd) = link; RETIRE_SUCCESS },
+        failure => failure,
+      }
+    },
+    Err(e) => e,
+  }
+}
+
+mapping clause assembly = L_JALT(off, rs1, rd)
+  <-> "l.jalt" ^ spc() ^ reg_name(rd) ^ sep() ^ reg_name(rs1) ^ sep() ^ hex_bits_signed_26(off)
 mapping clause assembly = L_BRANCH(imm, rs2, rs1, op)
   <-> "l." ^ btype_mnemonic(op) ^ spc() ^ reg_name(rs1) ^ sep() ^ reg_name(rs2) ^ sep() ^ hex_bits_signed_21(imm)
 
@@ -469,14 +506,11 @@ mapping clause encdec_long48 = L_STORE_PC(off, rs2, width)
   <-> off[28..15] @ 0b10 @ off[29] @ off[14..0] @ 0b1 @ 0b0 @ width_enc(width) @ encdec_reg(rs2) @ 0b01 @ 0b11111
   when currentlyEnabled(Ext_Zl) & width <= xlen_bytes
 
-private function zl_pcrel_addr(off : bits(30), access_info : AccessInfo) -> virtaddr =
-  transform_effective_address(Virtaddr(PC + sign_extend(off)), access_info)
-
 function clause execute L_LOAD_PC(off, rd, is_unsigned, width) = {
   assert(width <= xlen_bytes);
   let access : MemoryAccessType(mem_payload) = Load(Data);
   let access_info = default_access_info(access);
-  match vmem_read_addr(zl_pcrel_addr(off, access_info), width, access, access_info, false, false, false) {
+  match vmem_read_addr(zl_pcrel_addr(sign_extend(off), access_info), width, access, access_info, false, false, false) {
     Ok(data) => { X(rd) = extend_value(is_unsigned, data); RETIRE_SUCCESS },
     Err(e) => e,
   }
@@ -486,7 +520,7 @@ function clause execute L_STORE_PC(off, rs2, width) = {
   let access : MemoryAccessType(mem_payload) = Store(Data);
   let access_info = default_access_info(access);
   let data = X(rs2)[width * 8 - 1..0];
-  match vmem_write_addr(zl_pcrel_addr(off, access_info), width, data, access, access_info, false, false, false) {
+  match vmem_write_addr(zl_pcrel_addr(sign_extend(off), access_info), width, data, access, access_info, false, false, false) {
     Ok(_) => RETIRE_SUCCESS,
     Err(e) => e,
   }

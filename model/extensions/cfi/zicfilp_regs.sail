@@ -56,6 +56,10 @@ function update_elp_state(rs1 : regidx) -> unit =
     elp = bool_to_bit(not(is_software_guarded_branch) & not(is_return))
   }
 
+// For indirect jumps whose target does not come from a register (e.g. Zl L.JALT).
+function set_elp_expected() -> unit =
+  if currentlyEnabled(Ext_Zicfilp) then elp = landing_pad_bits(LP_EXPECTED)
+
 function is_landing_pad_expected() -> bool =
   elp == landing_pad_bits(LP_EXPECTED)
 
