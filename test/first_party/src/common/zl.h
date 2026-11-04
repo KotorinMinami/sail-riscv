@@ -162,6 +162,12 @@
        ((((\off) >> 12) & 0xff) << 8) | ((((\off) >> 5) & 0x3f) << 2) | 2
 .endm
 
+// BRANCH-IMM64 (L4BI-type).
+.macro zl64_bi funct3, rs1, imm, off
+  zl64 (((((\off) >> 20) & 1) << 31) | (((\imm) & 0x7ff) << 20) | (\rs1 << 15) | (\funct3 << 12) | ((((\off) >> 1) & 0xf) << 8) | ((((\off) >> 11) & 1) << 7) | (3 << 5) | 0x1f), \
+       ((((((\imm) >> 11) & 0x1fff) << 19) | ((((\off) >> 12) & 0xff) << 11) | ((((\off) >> 5) & 0x3f) << 5) | (1 << 2) | 3))
+.endm
+
 // The branch must be taken: it skips over `j fail` (6 + 4 bytes).
 .macro taken insn:vararg
   \insn, 10
@@ -171,6 +177,19 @@
 // The branch must not be taken: if it is, it lands on `j fail`.
 .macro not_taken insn:vararg
   \insn, 10
+  j 1f
+  j fail
+1:
+.endm
+
+// 64-bit branch helpers: branch skips over `j fail` (8 + 4 = 12 bytes).
+.macro taken64 insn:vararg
+  \insn, 12
+  j fail
+.endm
+
+.macro not_taken64 insn:vararg
+  \insn, 12
   j 1f
   j fail
 1:

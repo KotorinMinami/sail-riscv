@@ -68,4 +68,35 @@ zl_test_begin
   taken zl_bi BTNONEI, A0, 0x0f
   not_taken zl_bi BTANYI, A0, 0x0f
 
+  // Compare with a sign-extended 24-bit immediate (BRANCH-IMM64).
+  li a0, -1
+  taken64 zl64_bi BEQI, A0, -1
+  not_taken64 zl64_bi BNEI, A0, -1
+  li a0, -0x800000
+  taken64 zl64_bi BEQI, A0, -0x800000
+  not_taken64 zl64_bi BNEI, A0, -0x800000
+  li a0, 0x7fffff
+  taken64 zl64_bi BEQI, A0, 0x7fffff
+  not_taken64 zl64_bi BNEI, A0, 0x7fffff
+  li a0, 1000000
+  taken64 zl64_bi BEQI, A0, 1000000
+  not_taken64 zl64_bi BNEI, A0, 1000000
+  li a0, 5
+  taken64 zl64_bi BLTI, A0, 6
+  not_taken64 zl64_bi BGEI, A0, 6
+  taken64 zl64_bi BGEI, A0, -0x800000
+  taken64 zl64_bi BLTUI, A0, -1
+  not_taken64 zl64_bi BGEUI, A0, -1
+  taken64 zl64_bi BGEUI, A0, 5
+  li a0, 0x70f0f0
+  taken64 zl64_bi BTANYI, A0, 0x70f0f0
+  taken64 zl64_bi BTNONEI, A0, 0x0f0f00
+  not_taken64 zl64_bi BTANYI, A0, 0x0f0f00
+  // Backwards loop with 64-bit branch.
+  li a0, 3
+1:
+  addi a0, a0, -1
+  zl64_bi BNEI, A0, 0, -4
+  check a0, 0
+
 zl_test_end

@@ -581,3 +581,29 @@ function clause execute L64_JAL(imm, rd) = {
 
 mapping clause assembly = L64_JAL(imm, rd)
   <-> "l.jal" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_48(imm)
+
+// BRANCH-IMM64 (L4BI-type): 24-bit immediate, 21-bit offset with sign bit at inst[31] (off[20]).
+union clause instruction = L64_BRANCH_IMM : (bits(21), bits(24), regidx, zl_bimm)
+
+mapping clause encdec_long64 = L64_BRANCH_IMM(off @ 0b0, imm, rs1, op)
+  <-> imm[23..11] @ off[18..11] @ off[9..4] @ 0b001 @ 0b11 @ off[19] @ imm[10..0] @ encdec_reg(rs1) @ encdec_zl_bimm(op) @ off[3..0] @ off[10] @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl)
+
+function clause execute L64_BRANCH_IMM(off, imm, rs1, op) = {
+  let a = X(rs1);
+  let b : xlenbits = sign_extend(imm);
+  let taken : bool = match op {
+    ZL_BEQI    => a == b,
+    ZL_BNEI    => a != b,
+    ZL_BTNONEI => (a & b) == zeros(),
+    ZL_BTANYI  => (a & b) != zeros(),
+    ZL_BLTI    => a <_s b,
+    ZL_BGEI    => a >=_s b,
+    ZL_BLTUI   => a <_u b,
+    ZL_BGEUI   => a >=_u b,
+  };
+  zl_branch(taken, off)
+}
+
+mapping clause assembly = L64_BRANCH_IMM(off, imm, rs1, op)
+  <-> "l." ^ zl_bimm_mnemonic(op) ^ spc() ^ reg_name(rs1) ^ sep() ^ hex_bits_signed_24(imm) ^ sep() ^ hex_bits_signed_21(off)
