@@ -323,7 +323,7 @@ enum trigger_addr_type = {TriggerAddress_Load, TriggerAddress_Store, TriggerAddr
 
 union MemoryTriggerPayload = {
   TriggerFetchAddr   : xlenbits,
-  TriggerFetchInstr  : {('width : Int), 'width in {2, 4, 6}.         (xlenbits, bits(8 * 'width), int('width))},
+  TriggerFetchInstr  : {('width : Int), 'width in {2, 4, 6, 8}.      (xlenbits, bits(8 * 'width), int('width))},
   TriggerAddress     : {('width : Int), 0 < 'width <= max_mem_access. (trigger_addr_type, xlenbits, int('width))},
   TriggerStore       : {('width : Int), is_mem_width_wide('width).    (xlenbits, bits(8 * 'width), int('width))},
   TriggerLoadData    : {('width : Int), is_mem_width_wide('width).    (xlenbits, bits(8 * 'width), int('width))},

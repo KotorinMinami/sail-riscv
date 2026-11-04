@@ -61,6 +61,7 @@ union FetchResult = {
   F_Base       : word,                     // Base ISA
   F_RVC        : half,                     // Compressed ISA
   F_Long48     : bits(48),                 // Complete instruction (possibly illegal)
-  F_LongPrefix : bits(48),                 // Unsupported length; only 6 bytes fetched
+  F_Long64     : bits(64),                 // Complete instruction (possibly illegal)
+  F_LongPrefix : bits(48),                 // Longer than 64 bits; only 6 bytes fetched
   F_Error      : ExceptionContext          // Exception Context
 }

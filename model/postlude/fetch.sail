@@ -53,9 +53,10 @@ private function fetch_bytes forall 'n, 'n in {2, 4} . (fetch_start : xlenbits, 
 
 function long48_needs_third_parcel(a : bits(16)) -> bool = a[4..0] == 0b11111
 
-// Experimental length scheme: C, not A, distinguishes 48 from longer encodings.
-// Never access a fourth parcel for a class we cannot execute.
-private function fetch_long48() -> FetchResult = {
+// Zl length scheme: once A[4:0] = 11111, C[1:0] != 11 selects 48 bits and
+// otherwise C[4:2] != 111 selects 64 bits. Longer encodings are not supported,
+// so never access a parcel beyond the fourth.
+private function fetch_long() -> FetchResult = {
   let a : bits(16) = match fetch_bytes(PC, PC, 2) {
     FetchBytes_Ext_Error(e) => return F_Ext_Error(e),
     FetchBytes_Exception(e) => return F_Error(e),
@@ -74,9 +75,14 @@ private function fetch_long48() -> FetchResult = {
     FetchBytes_Success(h) => h,
   };
   let raw = c @ b @ a;
-  if c[1..0] != 0b11 | raw == 0xffffffffffff
-  then F_Long48(raw)
-  else F_LongPrefix(raw)
+  if c[1..0] != 0b11 | raw == 0xffffffffffff then return F_Long48(raw);
+  if c[4..2] == 0b111 then return F_LongPrefix(raw);
+  let d : bits(16) = match fetch_bytes(PC, PC + 6, 2) {
+    FetchBytes_Ext_Error(e) => return F_Ext_Error(e),
+    FetchBytes_Exception(e) => return F_Error(e),
+    FetchBytes_Success(h) => h,
+  };
+  F_Long64(d @ raw)
 }
 
 private function fetch() -> FetchResult = {
@@ -95,7 +101,7 @@ private function fetch() -> FetchResult = {
   if   (PC[0] != 0b0 | (PC[1] != 0b0 & not(enabled_ialign16())))
   then return F_Error(exception_context(E_Fetch_Addr_Align(), PC));
 
-  if currentlyEnabled(Ext_Zl) then return fetch_long48();
+  if currentlyEnabled(Ext_Zl) then return fetch_long();
 
   // For a PC aligned at ILEN=32, perform an atomic fetch for Ziccif.
   //

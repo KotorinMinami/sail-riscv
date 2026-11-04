@@ -114,7 +114,7 @@ private function run_hart_waiting(_step_no : nat, wr: WaitReason, instr_info : i
 
 // Only complete instructions reach observers. Instruction widths are independent
 // of the raw storage capacity and the widths allowed for data memory.
-private function execute_fetched forall 'n, 'n in {16, 32, 48} . (
+private function execute_fetched forall 'n, 'n in {16, 32, 48, 64} . (
   step_no : nat, raw : bits('n), fetch_privilege : Privilege,
   fetch_trigger_reentrance : bool
 ) -> Step = {
@@ -127,7 +127,8 @@ private function execute_fetched forall 'n, 'n in {16, 32, 48} . (
   };
   let fetched_instruction = if sizeof('n) == 16 then ext_decode_compressed(raw)
                             else if sizeof('n) == 32 then ext_decode(raw)
-                            else ext_decode_long48(raw);
+                            else if sizeof('n) == 48 then ext_decode_long48(raw)
+                            else ext_decode_long64(raw);
   let instbits : instbits = zero_extend(raw);
   if get_config_print_instr() then
     print_log_instr("[" ^ dec_str(step_no) ^ "] [" ^ to_str(cur_privilege) ^ "]: " ^ bits_str(PC) ^ " (" ^ bits_str(raw) ^ ") " ^ to_str(fetched_instruction), zero_extend(PC));
@@ -191,6 +192,7 @@ private function run_hart_active(step_no: nat) -> Step = {
     F_RVC(h) => execute_fetched(step_no, h, fetch_privilege, fetch_trigger_reentrance),
     F_Base(w) => execute_fetched(step_no, w, fetch_privilege, fetch_trigger_reentrance),
     F_Long48(w) => execute_fetched(step_no, w, fetch_privilege, fetch_trigger_reentrance),
+    F_Long64(w) => execute_fetched(step_no, w, fetch_privilege, fetch_trigger_reentrance),
     F_LongPrefix(w) => {
       // An incomplete unsupported encoding is not a successful fetch event.
       let info : instr_info = struct instr_info {

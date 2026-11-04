@@ -72,6 +72,9 @@ scattered mapping encdec_compressed
 val encdec_long48 : instruction <-> bits(48)
 scattered mapping encdec_long48
 
+val encdec_long64 : instruction <-> bits(64)
+scattered mapping encdec_long64
+
 // We declare the ILLEGAL/C_ILLEGAL instruction clauses here instead of in
 // insts_end, so that model extensions can make use of them.
 // However, the encdec mapping must come last to ensure that all
@@ -79,3 +82,4 @@ scattered mapping encdec_long48
 union clause instruction = ILLEGAL : word
 union clause instruction = C_ILLEGAL : half
 union clause instruction = L_ILLEGAL : bits(48)
+union clause instruction = L_ILLEGAL64 : bits(64)

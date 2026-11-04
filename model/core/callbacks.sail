@@ -10,7 +10,7 @@
 
 /// Called upon successful instruction fetch with the opcode.
 /// If there is a fetch error then this is not called (but trap_callback() will be).
-val fetch_callback = pure {cpp: "fetch_callback"} : forall 'n, 'n in {16, 32, 48}. (bits('n)) -> unit
+val fetch_callback = pure {cpp: "fetch_callback"} : forall 'n, 'n in {16, 32, 48, 64}. (bits('n)) -> unit
 function fetch_callback(_) = ()
 
 val mem_write_callback = pure {cpp: "mem_write_callback"} : forall 'n, 0 < 'n <= max_mem_access . (/* access type */ string, /* addr */ physaddrbits, /* width */ int('n), /* value */ bits(8 * 'n)) -> unit
