@@ -19,6 +19,29 @@ zl_test_begin
   j fail
 3:
 
+  // 64-bit L.JAL forwards: ra = pc + 8.
+  zl64_jal RA, 12
+  j fail
+  auipc t1, 0
+  addi t1, t1, -4
+  bne ra, t1, fail
+
+  // 64-bit L.JAL backwards (rd = x0).
+  j 2f
+1:
+  j 3f
+2:
+  zl64_jal ZERO, -4
+  j fail
+3:
+
+  // 64-bit L.JAL with rd != ra.
+  zl64_jal A0, 12
+  j fail
+  auipc t1, 0
+  addi t1, t1, -4
+  bne a0, t1, fail
+
   // L.JALR clears bit 0 of the target and links pc + 6.
   auipc t0, 0
   zl_jalr A0, T0, 15

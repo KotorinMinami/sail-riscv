@@ -562,3 +562,22 @@ mapping clause assembly = L64_LI(imm, rd)
   <-> "l.li" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_46(imm)
 mapping clause assembly = L64_AIPC(imm, rd)
   <-> "l.aipc" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_46(imm)
+
+// JUMP64 (L4J-type): 48-bit offset with sign bit at inst[31] (off[47]), off[0] = 0.
+union clause instruction = L64_JAL : (bits(48), regidx)
+
+mapping clause encdec_long64 = L64_JAL(imm @ 0b0, rd)
+  <-> imm[45..19] @ 0b000 @ 0b11 @ imm[46] @ imm[9..0] @ imm[10] @ imm[18..11] @ encdec_reg(rd) @ 0b11 @ 0b11111
+  when currentlyEnabled(Ext_Zl)
+
+function clause execute L64_JAL(imm, rd) = {
+  let offset : xlenbits = if xlen == 32 then imm[31..0] else sign_extend(imm);
+  let link = get_next_pc();
+  match jump_to(PC + offset) {
+    Retire_Success() => { X(rd) = link; RETIRE_SUCCESS },
+    failure => failure,
+  }
+}
+
+mapping clause assembly = L64_JAL(imm, rd)
+  <-> "l.jal" ^ spc() ^ reg_name(rd) ^ sep() ^ hex_bits_signed_48(imm)
